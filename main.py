@@ -39,8 +39,9 @@ class Student:
     def re_evaluate_matched_score(self):
         #
         error = np.random.normal(loc=0.1, scale=0.25, size=1)[0]
-        self.preference_score_dict[self.matched_company.name] = self.preference_score_dict[
-                                                                    self.matched_company.name] + error
+        if self.matched_company.name in self.preference_score_dict:
+            self.preference_score_dict[self.matched_company.name] = self.preference_score_dict[
+                                                                        self.matched_company.name] + error
         self.sort_preference_by_score()
 
     def sort_preference_by_score(self):
@@ -145,53 +146,6 @@ def DA_matching(students, companies):
         for student in company.temporary_list:
             results.append(student.name)
         matching[company.name] = results
-
-
-def theoretical_init_settings(students_list, companies_list):
-    num_students = 500
-    num_companies = 20
-    student_preference_num = 20
-    company_preference_num = 500
-    capacity = 20
-    for i in range(num_students):
-        student_preference = ['c' + str(the_number_of_company) for the_number_of_company in
-                              random.sample(range(1, num_companies + 1), student_preference_num)]
-        student = Student('s' + str(i + 1), student_preference)
-        students_list.append(student)
-    for i in range(num_companies):
-        company_preference = ['s' + str(the_number_of_student) for the_number_of_student in
-                              random.sample(range(1, num_students + 1), company_preference_num)]
-        company = Company('c' + str(i + 1), capacity, company_preference)
-        companies_list.append(company)
-
-    for student in students_list:
-        for company in companies_list:
-            if company.name in student.preference:
-                company_priority = student.preference.index(company.name)
-                if company.score > 0:
-                    student.preference[company_priority] = [student.preference[company_priority], company.score]
-                else:
-                    del student.preference[company_priority]
-        sorted_companies_list = sorted(student.preference, key=lambda x: -x[1])
-        flat_sorted = [x for row in sorted_companies_list for x in row]
-        student.preference_score_dict = dict(zip(flat_sorted[0::2], flat_sorted[1::2]))
-        sorted_preference_list = [company_class for company_class, _ in sorted_companies_list]
-        student.preference = sorted_preference_list
-
-    for company in companies_list:
-        for student in students_list:
-            error = np.random.normal(loc=0, scale=3, size=1)[0]
-            if student.name in company.preference:
-                student_priority = company.preference.index(student.name)
-                if student.score > 0:
-                    company.preference[student_priority] = [company.preference[student_priority], student.score]
-                else:
-                    del company.preference[student_priority]
-        sorted_students_list = sorted(company.preference, key=lambda x: -x[1])
-        flat_sorted = [x for row in sorted_students_list for x in row]
-        company.preference_score_dict = dict(zip(flat_sorted[0::2], flat_sorted[1::2]))
-        sorted_preference_list = [company_class for company_class, _ in sorted_students_list]
-        company.preference = sorted_preference_list
 
 
 def init_settings(students_list, companies_list):
@@ -384,6 +338,91 @@ def duration_DA(students_list, companies_list):
         DA_matching(split_students_list[i].tolist(), split_companies_list[i].tolist())
 
 
+def count_blocking_pair(students, companies):
+    num_blocking_pair = 0
+    for student in students:
+        possible_pair = []
+        if student.matched_company and student.matched_company.name in student.preference:
+            # 期を跨いでいたらない可能性がある
+            possible_pair_name = student.preference[:student.preference.index(student.matched_company.name)]
+            # print(student.matched_company.name)
+        else:
+            possible_pair_name = student.preference
+        # print(possible_pair_name)
+        for c_name in possible_pair_name:
+            for company in companies:
+                if c_name == company.name:
+                    possible_pair.append(company)
+        # print(possible_pair)
+        for c in possible_pair:
+            if student.name in c.preference_score_dict:
+                if len(c.temporary_list) == 0 or c.preference_score_dict[student.name] > c.temporary_list[-1].score:
+                    print(c.name, student.name,c.preference_score_dict[student.name], c.temporary_list[-1].name, c.temporary_list[-1].score )
+                    num_blocking_pair += 1
+            break
+    return num_blocking_pair
+
+
+# def count_blocking_pair(students1, companies1, students2, companies2):
+#     s_num_block = 0
+#     for student in students2:
+#         matched_company = student.matched_company
+#         if matched_company:
+#             possible_company = None
+#             for company in companies1:
+#                 if company.name == matched_company.name:
+#                     possible_company = company
+#             # print(possible_company.preference_score_dict)
+#             for s in possible_company.temporary_list:
+#                 if possible_company.preference_score_dict[s.name] < possible_company.preference_score_dict[
+#                     student.name]:
+#                     # print(s.name, student.name)
+#                     s_num_block += 1
+#                     break
+#         else:
+#             possible_student = None
+#             for s in students1:
+#                 if student.name == s.name:
+#                     possible_student = s
+#             if possible_student is not None and possible_student.matched_company is not None:
+#                 s_num_block += 1
+#     c_block_num = 0
+#     for company in companies2:
+#         matched_students = company.temporary_list
+#         if len(matched_students) > 0:
+#             for student in students1:
+#                 for m_student in matched_students:
+#                     if student.name == m_student.name:
+#                         possible_student = student
+#                         if possible_student.matched_company is not None and company.name in possible_student.preference:
+#                             if possible_student.preference_score_dict[possible_student.matched_company.name] < possible_student.preference_score_dict[company.name]:
+#                                 c_block_num += 1
+#                 break
+#         else:
+#             possible_company = None
+#             for c in companies1:
+#                 if company.name == c.name:
+#                     possible_company = c
+#             if possible_company is not None and len(possible_company.temporary_list) > 0:
+#                 c_block_num += 1
+#
+#     return np.array([s_num_block, c_block_num])
+
+
+def calculate_utility(students, companies):
+    u_students = 0
+    for s in students:
+        if s.matched_company:
+            u_students += s.preference_score_dict[s.matched_company.name]
+    u_companies = 0
+    for c in companies:
+        if len(c.temporary_list) > 0:
+            u_companies += sum([c.preference_score_dict[s.name] for s in c.temporary_list])
+    u_students = u_students / len(students)
+    u_companies = u_companies / len(companies)
+    return np.array([u_students, u_companies], dtype=float)
+
+
 def analyze(students1, companies1, students2, companies2):
     students1_score = []
     students2_score = []
@@ -418,12 +457,17 @@ def analyze(students1, companies1, students2, companies2):
     # minusは後ろの方が優れてる、plusは前の方が優れてる、つまりminusが少ない方が優れている
     # {"students": [minus, plus], "companies": [minus, plus]}
     result = np.array([[len(np_student_error[np_student_error < 0]), len(np_student_error[np_student_error > 0])],
-            [len(np_company_error[np_company_error < 0]), len(np_company_error[np_company_error > 0])]])
+                       [len(np_company_error[np_company_error < 0]), len(np_company_error[np_company_error > 0])]])
     return result
 
 
 if __name__ == "__main__":
     t1 = time.time()
+
+    u_one = np.array([0, 0], dtype=float)
+    u_two = np.array([0, 0], dtype=float)
+    u_three = np.array([0, 0], dtype=float)
+    u_four = np.array([0, 0], dtype=float)
 
     # {"students": [minus, plus], "companies": [minus, plus]}
     one_minus_two = np.array([[0, 0], [0, 0]])
@@ -433,7 +477,14 @@ if __name__ == "__main__":
     two_minus_four = np.array([[0, 0], [0, 0]])
     three_minus_four = np.array([[0, 0], [0, 0]])
 
-    n = 100
+    blocking_one_minus_two = np.array([0, 0])
+    blocking_one_minus_three = np.array([0, 0])
+    blocking_one_minus_four = np.array([0, 0])
+    blocking_two_minus_three = np.array([0, 0])
+    blocking_two_minus_four = np.array([0, 0])
+    blocking_three_minus_four = np.array([0, 0])
+
+    n = 1
     for i in range(n):
         students_list = []
         companies_list = []
@@ -461,12 +512,45 @@ if __name__ == "__main__":
         # print("4 start duration DA")
         duration_DA(initial4_students_list, initial4_company_list)
 
-        one_minus_two += analyze(initial1_students_list, initial1_company_list, initial2_students_list, initial2_company_list)
-        one_minus_three += analyze(initial1_students_list, initial1_company_list, initial3_students_list, initial3_company_list)
-        one_minus_four += analyze(initial1_students_list, initial1_company_list, initial4_students_list, initial4_company_list)
-        two_minus_three += analyze(initial2_students_list, initial2_company_list, initial3_students_list, initial3_company_list)
-        two_minus_four += analyze(initial2_students_list, initial2_company_list, initial4_students_list, initial4_company_list)
-        three_minus_four += analyze(initial3_students_list, initial3_company_list, initial4_students_list, initial4_company_list)
+        # u_one += calculate_utility(initial1_students_list, initial1_company_list)
+        # u_two += calculate_utility(initial2_students_list, initial2_company_list)
+        # u_three += calculate_utility(initial3_students_list, initial3_company_list)
+        # u_four += calculate_utility(initial4_students_list, initial4_company_list)
+        #
+        # one_minus_two += analyze(initial1_students_list, initial1_company_list, initial2_students_list,
+        #                          initial2_company_list)
+        # one_minus_three += analyze(initial1_students_list, initial1_company_list, initial3_students_list,
+        #                            initial3_company_list)
+        # one_minus_four += analyze(initial1_students_list, initial1_company_list, initial4_students_list,
+        #                           initial4_company_list)
+        # two_minus_three += analyze(initial2_students_list, initial2_company_list, initial3_students_list,
+        #                            initial3_company_list)
+        # two_minus_four += analyze(initial2_students_list, initial2_company_list, initial4_students_list,
+        #                           initial4_company_list)
+        # three_minus_four += analyze(initial3_students_list, initial3_company_list, initial4_students_list,
+        #                             initial4_company_list)
+
+        blocking_one_minus_two += count_blocking_pair(initial1_students_list, initial1_company_list)
+        blocking_one_minus_three += count_blocking_pair(initial2_students_list, initial2_company_list)
+        #                                                 initial3_students_list,
+        #                                                 initial3_company_list)
+        blocking_one_minus_four += count_blocking_pair(initial3_students_list, initial3_company_list)
+        #                                                initial4_students_list,
+        #                                                initial4_company_list)
+        blocking_two_minus_three += count_blocking_pair(initial4_students_list, initial4_company_list)
+        #                                                 initial3_students_list,
+        #                                                 initial3_company_list)
+        # blocking_two_minus_four += count_blocking_pair(initial2_students_list, initial2_company_list,
+        #                                                initial4_students_list,
+        #                                                initial4_company_list)
+        # blocking_three_minus_four += count_blocking_pair(initial3_students_list, initial3_company_list,
+        #                                                  initial4_students_list,
+        #                                                  initial4_company_list)
+
+    u_one = u_one / n
+    u_two = u_two / n
+    u_three = u_three / n
+    u_four = u_four / n
 
     one_minus_two = one_minus_two / n
     one_minus_three = one_minus_three / n
@@ -475,13 +559,25 @@ if __name__ == "__main__":
     two_minus_four = two_minus_four / n
     three_minus_four = three_minus_four / n
 
+    blocking_one_minus_two = blocking_one_minus_two / n
+    blocking_one_minus_three = blocking_one_minus_three / n
+    blocking_one_minus_four = blocking_one_minus_four / n
+    blocking_two_minus_three = blocking_two_minus_three / n
+    blocking_two_minus_four = blocking_two_minus_four / n
+    blocking_three_minus_four = blocking_three_minus_four / n
+
+    print(u_one)
+    print(u_two)
+    print(u_three)
+    print(u_four)
+
     print('{"students": [minus, plus], "companies": [minus, plus]}')
-    print("1-2", one_minus_two)
-    print("1-3", one_minus_three)
-    print("1-4", one_minus_four)
-    print("2-3", two_minus_three)
-    print("2-4", two_minus_four)
-    print("3-4", three_minus_four)
+    print("1-2", one_minus_two, "blocking-pair", blocking_one_minus_two)
+    print("1-3", one_minus_three, "blocking-pair", blocking_one_minus_three)
+    print("1-4", one_minus_four, "blocking-pair", blocking_one_minus_four)
+    print("2-3", two_minus_three, "blocking-pair", blocking_two_minus_three)
+    print("2-4", two_minus_four, "blocking-pair", blocking_two_minus_four)
+    print("3-4", three_minus_four, "blocking-pair", blocking_three_minus_four)
 
     t2 = time.time()
     elapsed_time = t2 - t1
