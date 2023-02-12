@@ -71,7 +71,6 @@ class Company:
         self.temporary_list = [student_class for student_class, _ in sorted_students_list]
 
     def decide_acceptance(self, student):
-        self.sort_student_by_pref()
         if student.name in self.preference:
             if self.capacity > len(self.temporary_list):
                 if student.name not in [s.name for s in self.temporary_list]:
@@ -138,7 +137,6 @@ def DA_matching(students, companies):
         del unmatched_students_list[0]
 
 
-
 def init_settings(students_list, companies_list):
     num_students = 500
     num_companies = 20
@@ -187,7 +185,6 @@ def init_settings(students_list, companies_list):
         company.preference_score_dict = dict(zip(flat_sorted[0::2], flat_sorted[1::2]))
         sorted_preference_list = [company_class for company_class, _ in sorted_students_list]
         company.preference = sorted_preference_list
-
 
 
 def get_unfilled_companies(companies_list):
@@ -339,76 +336,26 @@ def count_blocking_pair(students, companies):
     num_blocking_pair = 0
     for student in students:
         possible_pair = []
-        if student.matched_company and student.matched_company.name in student.preference:
-            # 期を跨いでいたらない可能性がある
-            possible_pair_name = student.preference[:student.preference.index(student.matched_company.name)]
-            # print(student.matched_company.name)
+        if student.matched_company:
+            if student.matched_company.name in student.preference:
+                # 期を跨いでいたらない可能性がある
+                possible_pair_name = student.preference[:student.preference.index(student.matched_company.name)]
+            else:
+                possible_pair_name = student.preference
         else:
-            possible_pair_name = student.preference
-        # print(possible_pair_name)
+            continue
         for c_name in possible_pair_name:
             for company in companies:
                 if c_name == company.name:
                     possible_pair.append(company)
-        # print(possible_pair)
         for c in possible_pair:
             if student.name in c.preference_score_dict:
                 if len(c.temporary_list) == 0:
                     num_blocking_pair += 1
                 elif c.preference_score_dict[student.name] > c.preference_score_dict[c.temporary_list[-1].name]:
-                    # print(student.name,c.name, c.preference_score_dict[student.name], c.temporary_list[-1].name,c.preference_score_dict[c.temporary_list[-1].name])
-                    # for s in c.temporary_list:
-                        # print(c.name, student.name, c.preference_score_dict[student.name], s.name,c.preference_score_dict[s.name])
-                    # print(c.name, student.name,c.preference_score_dict[student.name], c.temporary_list[-1].name, c.temporary_list[-1].score )
                     num_blocking_pair += 1
             break
     return num_blocking_pair
-
-
-# def count_blocking_pair(students1, companies1, students2, companies2):
-#     s_num_block = 0
-#     for student in students2:
-#         matched_company = student.matched_company
-#         if matched_company:
-#             possible_company = None
-#             for company in companies1:
-#                 if company.name == matched_company.name:
-#                     possible_company = company
-#             # print(possible_company.preference_score_dict)
-#             for s in possible_company.temporary_list:
-#                 if possible_company.preference_score_dict[s.name] < possible_company.preference_score_dict[
-#                     student.name]:
-#                     # print(s.name, student.name)
-#                     s_num_block += 1
-#                     break
-#         else:
-#             possible_student = None
-#             for s in students1:
-#                 if student.name == s.name:
-#                     possible_student = s
-#             if possible_student is not None and possible_student.matched_company is not None:
-#                 s_num_block += 1
-#     c_block_num = 0
-#     for company in companies2:
-#         matched_students = company.temporary_list
-#         if len(matched_students) > 0:
-#             for student in students1:
-#                 for m_student in matched_students:
-#                     if student.name == m_student.name:
-#                         possible_student = student
-#                         if possible_student.matched_company is not None and company.name in possible_student.preference:
-#                             if possible_student.preference_score_dict[possible_student.matched_company.name] < possible_student.preference_score_dict[company.name]:
-#                                 c_block_num += 1
-#                 break
-#         else:
-#             possible_company = None
-#             for c in companies1:
-#                 if company.name == c.name:
-#                     possible_company = c
-#             if possible_company is not None and len(possible_company.temporary_list) > 0:
-#                 c_block_num += 1
-#
-#     return np.array([s_num_block, c_block_num])
 
 
 def calculate_utility(students, companies):
@@ -505,11 +452,11 @@ if __name__ == "__main__":
         print()
         # print("2 start divided rejoin DA")
         divided_rejoin_DA(initial2_students_list, initial2_company_list)
-        print()
-        # print("3 start divided DA")
+        # print()
+        # # print("3 start divided DA")
         divided_DA(initial3_students_list, initial3_company_list)
-        print()
-        # print("4 start duration DA")
+        # print()
+        # # print("4 start duration DA")
         duration_DA(initial4_students_list, initial4_company_list)
 
         u_one += calculate_utility(initial1_students_list, initial1_company_list)
